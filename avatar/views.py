@@ -157,6 +157,9 @@ def delete(request, extra_context=None, next_override=None, *args, **kwargs):
     )
 
 from dcif.gatekeeper.permissions import gatekeeper_required
+from django.shortcuts import get_object_or_404
+from django.contrib.auth.models import User
+
 @gatekeeper_required('avatar_admin')
 def add_avatar_for_user(request, for_user=None, extra_context=None,
         next_override=None,
