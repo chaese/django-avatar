@@ -155,6 +155,118 @@ def delete(request, extra_context=None, next_override=None, *args, **kwargs):
               'next': next_override or _get_next(request), }
         )
     )
+
+from dcif.gatekeeper.permissions import gatekeeper_required
+@gatekeeper_required('avatar_admin')
+def add_avatar_for_user(request, for_user=None, extra_context=None,
+        next_override=None,
+        upload_form=UploadAvatarForm, *args, **kwargs):
+    target_user = get_object_or_404(User, username=for_user, is_active=True)
+    if extra_context is None:
+        extra_context = {}
+    avatar, avatars = _get_avatars(target_user)
+    upload_avatar_form = upload_form(request.POST or None,
+        request.FILES or None, user=target_user)
+    if request.method == "POST" and 'avatar' in request.FILES:
+        if upload_avatar_form.is_valid():
+            avatar = Avatar(
+                user = target_user,
+                primary = True,
+            )
+            image_file = request.FILES['avatar']
+            avatar.avatar.save(image_file.name, image_file)
+            avatar.save()
+            messages.add_message(request, messages.INFO, _("Successfully uploaded a new avatar"))
+            avatar_updated.send(sender=Avatar, user=target_user, avatar=avatar)
+            return HttpResponseRedirect(next_override or _get_next(request))
+    return render_to_response(
+            'avatar/add_for_user.html',
+            extra_context,
+            context_instance = RequestContext(
+                request,
+                { 'avatar': avatar,
+                  'avatars': avatars,
+                  'target_user': target_user,
+                  'upload_avatar_form': upload_avatar_form,
+                  'next': next_override or _get_next(request), }
+            )
+        )
+
+@gatekeeper_required('avatar_admin')
+def change_avatar_for_user(request, for_user=None, extra_context=None,
+        upload_form=UploadAvatarForm, primary_form=PrimaryAvatarForm,
+        *args, **kwargs):
+    target_user = get_object_or_404(User, username=for_user, is_active=True)
+    if extra_context is None:
+        extra_context = {}
+    avatar, avatars = _get_avatars(target_user)
+    if avatar:
+        kwargs = {'initial': {'choice': avatar.id}}
+    else:
+        kwargs = {}
+    upload_avatar_form = upload_form(user=target_user, **kwargs)
+    primary_avatar_form = primary_form(request.POST or None,
+        user=target_user, avatars=avatars, **kwargs)
+    if request.method == "POST":
+        updated = False
+        if 'choice' in request.POST and primary_avatar_form.is_valid():
+            avatar = Avatar.objects.get(id=
+                primary_avatar_form.cleaned_data['choice'])
+            avatar.primary = True
+            avatar.save()
+            updated = True
+            messages.add_message(request, messages.INFO, _("Successfully updated this user's avatars"))
+        if updated:
+            avatar_updated.send(sender=Avatar, user=target_user, avatar=avatar)
+        return redirect('judge_detail', username=target_user)
+    return render_to_response(
+        'avatar/change_for_user.html',
+        extra_context,
+        context_instance = RequestContext(
+            request,
+            { 'avatar': avatar,
+              'avatars': avatars,
+              'target_user': target_user,
+              'upload_avatar_form': upload_avatar_form,
+              'primary_avatar_form': primary_avatar_form, }
+        )
+    )
+
+@gatekeeper_required('avatar_admin')
+def delete_avatar_for_user(request, for_user=None, extra_context=None,
+        next_override=None, *args, **kwargs):
+    target_user = get_object_or_404(User, username=for_user, is_active=True)
+    if extra_context is None:
+        extra_context = {}
+    avatar, avatars = _get_avatars(target_user)
+    delete_avatar_form = DeleteAvatarForm(request.POST or None,
+        user=target_user, avatars=avatars)
+    if request.method == 'POST':
+        if delete_avatar_form.is_valid():
+            ids = delete_avatar_form.cleaned_data['choices']
+            if unicode(avatar.id) in ids and avatars.count() > len(ids):
+                # Find the next best avatar, and set it as the new primary
+                for a in avatars:
+                    if unicode(a.id) not in ids:
+                        a.primary = True
+                        a.save()
+                        avatar_updated.send(sender=Avatar, user=target_user, avatar=avatar)
+                        break
+            Avatar.objects.filter(id__in=ids).delete()
+            messages.add_message(request, messages.INFO, _("Successfully deleted the requested avatars"))
+            return HttpResponseRedirect(next_override or _get_next(request))
+    return render_to_response(
+        'avatar/confirm_delete_for_user.html',
+        extra_context,
+        context_instance = RequestContext(
+            request,
+            { 'avatar': avatar,
+              'avatars': avatars,
+              'target_user': target_user,
+              'delete_avatar_form': delete_avatar_form,
+              'next': next_override or _get_next(request), }
+        )
+    )
     
 def render_primary(request, extra_context={}, user=None, size=AVATAR_DEFAULT_SIZE, *args, **kwargs):
     size = int(size)
