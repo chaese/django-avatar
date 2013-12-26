@@ -197,6 +197,7 @@ def add_avatar_for_user(request, for_user=None, extra_context=None,
 
 @gatekeeper_required('avatar_admin')
 def change_avatar_for_user(request, for_user=None, extra_context=None,
+        next_override=None,
         upload_form=UploadAvatarForm, primary_form=PrimaryAvatarForm,
         *args, **kwargs):
     target_user = get_object_or_404(User, username=for_user, is_active=True)
@@ -221,7 +222,7 @@ def change_avatar_for_user(request, for_user=None, extra_context=None,
             messages.add_message(request, messages.INFO, _("Successfully updated this user's avatars"))
         if updated:
             avatar_updated.send(sender=Avatar, user=target_user, avatar=avatar)
-        return redirect('judge_detail', username=target_user)
+        return HttpResponseRedirect(next_override or _get_next(request))
     return render_to_response(
         'avatar/change_for_user.html',
         extra_context,
