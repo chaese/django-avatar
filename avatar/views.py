@@ -10,6 +10,7 @@ from django.contrib.auth.decorators import login_required
 from avatar.forms import PrimaryAvatarForm, DeleteAvatarForm, UploadAvatarForm
 from avatar.models import Avatar
 from avatar.settings import AVATAR_MAX_AVATARS_PER_USER, AVATAR_DEFAULT_SIZE
+from avatar.settings import AVATAR_ADMIN_TEST
 from avatar.signals import avatar_updated
 from avatar.util import get_primary_avatar, get_default_avatar_url
 
@@ -156,15 +157,17 @@ def delete(request, extra_context=None, next_override=None, *args, **kwargs):
         )
     )
 
-from dcif.gatekeeper.permissions import gatekeeper_required
+from django.core.exceptions import PermissionDenied
 from django.shortcuts import get_object_or_404
 from django.contrib.auth.models import User
 
-@gatekeeper_required('avatar_admin')
+@login_required
 def add_avatar_for_user(request, for_user=None, extra_context=None,
         next_override=None,
         upload_form=UploadAvatarForm, *args, **kwargs):
     target_user = get_object_or_404(User, username=for_user, is_active=True)
+    if not AVATAR_ADMIN_TEST(request, target_user):
+        raise PermissionDenied
     if extra_context is None:
         extra_context = {}
     avatar, avatars = _get_avatars(target_user)
@@ -195,12 +198,14 @@ def add_avatar_for_user(request, for_user=None, extra_context=None,
             )
         )
 
-@gatekeeper_required('avatar_admin')
+@login_required
 def change_avatar_for_user(request, for_user=None, extra_context=None,
         next_override=None,
         upload_form=UploadAvatarForm, primary_form=PrimaryAvatarForm,
         *args, **kwargs):
     target_user = get_object_or_404(User, username=for_user, is_active=True)
+    if not AVATAR_ADMIN_TEST(request, target_user):
+        raise PermissionDenied
     if extra_context is None:
         extra_context = {}
     avatar, avatars = _get_avatars(target_user)
@@ -236,10 +241,12 @@ def change_avatar_for_user(request, for_user=None, extra_context=None,
         )
     )
 
-@gatekeeper_required('avatar_admin')
+@login_required
 def delete_avatar_for_user(request, for_user=None, extra_context=None,
         next_override=None, *args, **kwargs):
     target_user = get_object_or_404(User, username=for_user, is_active=True)
+    if not AVATAR_ADMIN_TEST(request, target_user):
+        raise PermissionDenied
     if extra_context is None:
         extra_context = {}
     avatar, avatars = _get_avatars(target_user)

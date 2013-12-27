@@ -21,3 +21,12 @@ AVATAR_HASH_FILENAMES = getattr(settings, 'AVATAR_HASH_FILENAMES', False)
 AVATAR_HASH_USERDIRNAMES = getattr(settings, 'AVATAR_HASH_USERDIRNAMES', False)
 AVATAR_ALLOWED_FILE_EXTS = getattr(settings, 'AVATAR_ALLOWED_FILE_EXTS', None)
 AVATAR_CACHE_TIMEOUT = getattr(settings, 'AVATAR_CACHE_TIMEOUT', 60*60)
+
+def default_avatar_admin_test(request, target_user):
+    # A callback function for testing whether the user making the request
+    # has permission to manage the target user's avatars. By default,
+    # nobody has this permission.
+    return False
+
+AVATAR_ADMIN_TEST = getattr(settings, 'AVATAR_ADMIN_TEST',
+    default_avatar_admin_test)
